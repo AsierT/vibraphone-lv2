@@ -1,3 +1,5 @@
+> **WIP:** Work in progress. DSP behavior, LV2 metadata, presets, and build targets may change.
+
 # Vibraphone LV2
 
 Standalone LV2 vibraphone by TT Beats.
