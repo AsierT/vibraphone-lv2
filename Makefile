@@ -16,7 +16,7 @@ SRC := src/vibraphone.cpp
 
 S2400_DIR := s2400-lv2
 S2400_TEMPLATE := templates/vibraphone-s2400.ttl.in
-URI := https://github.com/AsierT/vibraphone-lv2#vibraphone
+URI := https://github.com/AsierT/vibraphone-lv2\#vibraphone
 
 all: $(PLUGIN_SO)
 
@@ -51,6 +51,8 @@ arm64-s2400:
 
 check-s2400:
 >file $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so
+>grep -R 'vibraphone-lv2' $(S2400_DIR)/$(PLUGIN_BUNDLE)/*.ttl
+>strings -a $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so | grep 'vibraphone-lv2' || true
 >aarch64-linux-gnu-readelf -d $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so | grep NEEDED || readelf -d $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so | grep NEEDED || true
 >strings -a $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so | grep -E 'GLIBC_|GLIBCXX_|GCC_' | sort -V | uniq || true
 >aarch64-linux-gnu-nm -D $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so | grep lv2_descriptor || nm -D $(S2400_DIR)/$(PLUGIN_BUNDLE)/vibraphone.so | grep lv2_descriptor || true
