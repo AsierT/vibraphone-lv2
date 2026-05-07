@@ -2,7 +2,7 @@
 
 # Vibraphone LV2
 
-Standalone LV2 vibraphone by TT Beats.
+Standalone LV2 vibraphone by TT Lab.
 
 This is a duophonic vibraphone instrument. MIDI Note On triggers the played note plus one automatic harmony note calculated from Root, Scale, and Interval. It keeps only two notes active at a time.
 
@@ -65,7 +65,7 @@ https://github.com/AsierT/vibraphone-lv2#vibraphone
 Brand/developer:
 
 ```text
-TT Beats
+TT Lab
 ```
 
 ## License

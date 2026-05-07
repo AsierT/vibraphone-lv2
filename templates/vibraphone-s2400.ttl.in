@@ -16,8 +16,7 @@
 <@URI@/echo> a pg:Group ; lv2:name "Echo" .
 
 <@URI@>
-    a lv2:Plugin, lv2:InstrumentPlugin ;
-    lv2:requiredFeature <http://lv2plug.in/ns/ext/urid#map> ;
+    a lv2:Plugin ;
     lv2:optionalFeature <http://lv2plug.in/ns/ext/buf-size#boundedBlockLength> ;
 
     lv2:port
@@ -72,10 +71,10 @@
     [ a atom:AtomPort, lv2:InputPort ; lv2:index 35 ; lv2:symbol "midi_in" ; lv2:name "MIDI In" ; lv2:designation lv2:control ; atom:bufferType atom:Sequence ; atom:supports midi:MidiEvent ] ;
 
     rdfs:comment "Duophonic vibraphone with scale interval harmony, spring reverb, and multi-head tape echo." ;
-    mod:brand "TT Beats" ;
+    mod:brand "TT Lab" ;
     mod:label "Vibraphone" ;
     doap:name "Vibraphone" ;
     doap:license "GPL-2.0-only" ;
-    doap:developer [ foaf:name "TT Beats" ] ;
-    lv2:microVersion 6 ;
+    doap:developer [ foaf:name "TT Lab" ] ;
+    lv2:microVersion 7 ;
     lv2:minorVersion 0 .
