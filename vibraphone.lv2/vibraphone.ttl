@@ -1,0 +1,73 @@
+@prefix atom: <http://lv2plug.in/ns/ext/atom#> .
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix midi: <http://lv2plug.in/ns/ext/midi#> .
+@prefix mod:  <http://moddevices.com/ns/mod#> .
+@prefix pg:   <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> a pg:Group ; lv2:name "Harmony" .
+<https://github.com/AsierT/vibraphone-lv2#vibraphone/vibraphone> a pg:Group ; lv2:name "Vibraphone" .
+<https://github.com/AsierT/vibraphone-lv2#vibraphone/envelope> a pg:Group ; lv2:name "Envelope" .
+<https://github.com/AsierT/vibraphone-lv2#vibraphone/tremolo> a pg:Group ; lv2:name "Tremolo" .
+<https://github.com/AsierT/vibraphone-lv2#vibraphone/spring> a pg:Group ; lv2:name "Spring" .
+<https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> a pg:Group ; lv2:name "Echo" .
+
+<https://github.com/AsierT/vibraphone-lv2#vibraphone>
+  a lv2:Plugin, lv2:InstrumentPlugin ;
+  doap:name "Vibraphone" ;
+  doap:license "ISC" ;
+  doap:developer [ foaf:name "TT Beats" ] ;
+  mod:brand "TT Beats" ;
+  mod:label "Vibraphone" ;
+  lv2:minorVersion 0 ;
+  lv2:microVersion 5 ;
+  lv2:requiredFeature <http://lv2plug.in/ns/ext/urid#map> ;
+  lv2:port
+    [ a lv2:AudioPort, lv2:OutputPort ; lv2:index 0 ; lv2:symbol "out_l" ; lv2:name "Out L" ] ,
+    [ a lv2:AudioPort, lv2:OutputPort ; lv2:index 1 ; lv2:symbol "out_r" ; lv2:name "Out R" ] ,
+
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 2 ; lv2:symbol "root" ; lv2:name "Root" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> ; lv2:portProperty lv2:integer, lv2:enumeration ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 11 ;
+      lv2:scalePoint [ rdfs:label "C" ; rdf:value 0 ] , [ rdfs:label "C#" ; rdf:value 1 ] , [ rdfs:label "D" ; rdf:value 2 ] , [ rdfs:label "D#" ; rdf:value 3 ] , [ rdfs:label "E" ; rdf:value 4 ] , [ rdfs:label "F" ; rdf:value 5 ] , [ rdfs:label "F#" ; rdf:value 6 ] , [ rdfs:label "G" ; rdf:value 7 ] , [ rdfs:label "G#" ; rdf:value 8 ] , [ rdfs:label "A" ; rdf:value 9 ] , [ rdfs:label "A#" ; rdf:value 10 ] , [ rdfs:label "B" ; rdf:value 11 ] ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 3 ; lv2:symbol "scale" ; lv2:name "Scale" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> ; lv2:portProperty lv2:integer, lv2:enumeration ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 7 ;
+      lv2:scalePoint [ rdfs:label "Major" ; rdf:value 0 ] , [ rdfs:label "Minor" ; rdf:value 1 ] , [ rdfs:label "Dorian" ; rdf:value 2 ] , [ rdfs:label "Phrygian" ; rdf:value 3 ] , [ rdfs:label "Lydian" ; rdf:value 4 ] , [ rdfs:label "Mixolydian" ; rdf:value 5 ] , [ rdfs:label "Harmonic Minor" ; rdf:value 6 ] , [ rdfs:label "Melodic Minor" ; rdf:value 7 ] ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 4 ; lv2:symbol "interval" ; lv2:name "Interval" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> ; lv2:portProperty lv2:integer, lv2:enumeration ; lv2:default 4 ; lv2:minimum 0 ; lv2:maximum 7 ;
+      lv2:scalePoint [ rdfs:label "Unison" ; rdf:value 0 ] , [ rdfs:label "2nd" ; rdf:value 1 ] , [ rdfs:label "3rd" ; rdf:value 2 ] , [ rdfs:label "4th" ; rdf:value 3 ] , [ rdfs:label "5th" ; rdf:value 4 ] , [ rdfs:label "6th" ; rdf:value 5 ] , [ rdfs:label "7th" ; rdf:value 6 ] , [ rdfs:label "Octave" ; rdf:value 7 ] ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 5 ; lv2:symbol "harmony_level" ; lv2:name "Harmony Level" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> ; lv2:default 0.82 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 6 ; lv2:symbol "harmony_direction" ; lv2:name "Harmony Direction" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> ; lv2:portProperty lv2:integer, lv2:enumeration ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 1 ; lv2:scalePoint [ rdfs:label "Up" ; rdf:value 0 ] , [ rdfs:label "Down" ; rdf:value 1 ] ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 7 ; lv2:symbol "scale_snap" ; lv2:name "Scale Snap" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/harmony> ; lv2:portProperty lv2:integer, lv2:enumeration ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 2 ; lv2:scalePoint [ rdfs:label "Nearest" ; rdf:value 0 ] , [ rdfs:label "Up" ; rdf:value 1 ] , [ rdfs:label "Down" ; rdf:value 2 ] ] ,
+
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 8 ; lv2:symbol "tone" ; lv2:name "Tone" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/vibraphone> ; lv2:default 0.55 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 9 ; lv2:symbol "mallet_hardness" ; lv2:name "Mallet Hardness" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/vibraphone> ; lv2:default 0.35 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 10 ; lv2:symbol "strike_noise" ; lv2:name "Strike Noise" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/vibraphone> ; lv2:default 0.20 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 11 ; lv2:symbol "bar_decay" ; lv2:name "Bar Decay" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/vibraphone> ; lv2:default 0.65 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 12 ; lv2:symbol "velocity_sens" ; lv2:name "Velocity Sens" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/vibraphone> ; lv2:default 0.75 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 13 ; lv2:symbol "amp_attack" ; lv2:name "Amp Attack" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/envelope> ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 14 ; lv2:symbol "amp_decay" ; lv2:name "Amp Decay" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/envelope> ; lv2:default 0.55 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 15 ; lv2:symbol "amp_sustain" ; lv2:name "Amp Sustain" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/envelope> ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 16 ; lv2:symbol "amp_release" ; lv2:name "Amp Release" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/envelope> ; lv2:default 0.35 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 17 ; lv2:symbol "tremolo_rate" ; lv2:name "Tremolo Rate" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/tremolo> ; lv2:default 5.5 ; lv2:minimum 0.1 ; lv2:maximum 12 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 18 ; lv2:symbol "tremolo_depth" ; lv2:name "Tremolo Depth" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/tremolo> ; lv2:default 0.35 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 19 ; lv2:symbol "width" ; lv2:name "Width" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/tremolo> ; lv2:default 0.65 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 20 ; lv2:symbol "gain" ; lv2:name "Gain" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/tremolo> ; lv2:default 0.70 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 21 ; lv2:symbol "spring_mix" ; lv2:name "Spring Mix" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/spring> ; lv2:default 0.10 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 22 ; lv2:symbol "spring_decay" ; lv2:name "Spring Decay" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/spring> ; lv2:default 0.45 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 23 ; lv2:symbol "spring_tone" ; lv2:name "Spring Tone" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/spring> ; lv2:default 0.55 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 24 ; lv2:symbol "spring_drive" ; lv2:name "Spring Drive" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/spring> ; lv2:default 0.20 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 25 ; lv2:symbol "spring_shake" ; lv2:name "Spring Shake" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/spring> ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 26 ; lv2:symbol "delay_mix" ; lv2:name "Delay Mix" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 27 ; lv2:symbol "delay_time" ; lv2:name "Delay Time" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:default 360 ; lv2:minimum 40 ; lv2:maximum 1600 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 28 ; lv2:symbol "delay_feedback" ; lv2:name "Delay Feedback" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:default 0.35 ; lv2:minimum 0 ; lv2:maximum 0.92 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 29 ; lv2:symbol "tape_tone" ; lv2:name "Tape Tone" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:default 0.55 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 30 ; lv2:symbol "wow_flutter" ; lv2:name "Wow Flutter" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:default 0.15 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 31 ; lv2:symbol "tape_age" ; lv2:name "Tape Age" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:default 0.25 ; lv2:minimum 0 ; lv2:maximum 1 ] ,
+    [ a lv2:ControlPort, lv2:InputPort ; lv2:index 32 ; lv2:symbol "head_mode" ; lv2:name "Head Mode" ; pg:group <https://github.com/AsierT/vibraphone-lv2#vibraphone/echo> ; lv2:portProperty lv2:integer, lv2:enumeration ; lv2:default 6 ; lv2:minimum 0 ; lv2:maximum 6 ;
+      lv2:scalePoint [ rdfs:label "Head 1" ; rdf:value 0 ] , [ rdfs:label "Head 2" ; rdf:value 1 ] , [ rdfs:label "Head 3" ; rdf:value 2 ] , [ rdfs:label "Head 1+2" ; rdf:value 3 ] , [ rdfs:label "Head 2+3" ; rdf:value 4 ] , [ rdfs:label "Head 1+3" ; rdf:value 5 ] , [ rdfs:label "Head 1+2+3" ; rdf:value 6 ] ] ,
+
+    [ a atom:AtomPort, lv2:InputPort ; lv2:index 33 ; lv2:symbol "midi_in" ; lv2:name "MIDI In" ; lv2:designation lv2:control ; atom:bufferType atom:Sequence ; atom:supports midi:MidiEvent ] .
