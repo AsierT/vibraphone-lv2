@@ -75,7 +75,7 @@
     mod:brand "TT Beats" ;
     mod:label "Vibraphone" ;
     doap:name "Vibraphone" ;
-    doap:license "ISC" ;
+    doap:license "GPL-2.0-only" ;
     doap:developer [ foaf:name "TT Beats" ] ;
-    lv2:microVersion 5 ;
+    lv2:microVersion 6 ;
     lv2:minorVersion 0 .

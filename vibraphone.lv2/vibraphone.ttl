@@ -18,12 +18,12 @@
 <https://github.com/AsierT/vibraphone-lv2#vibraphone>
   a lv2:Plugin, lv2:InstrumentPlugin ;
   doap:name "Vibraphone" ;
-  doap:license "ISC" ;
+  doap:license "GPL-2.0-only" ;
   doap:developer [ foaf:name "TT Beats" ] ;
   mod:brand "TT Beats" ;
   mod:label "Vibraphone" ;
   lv2:minorVersion 0 ;
-  lv2:microVersion 5 ;
+  lv2:microVersion 6 ;
   lv2:requiredFeature <http://lv2plug.in/ns/ext/urid#map> ;
   lv2:port
     [ a lv2:AudioPort, lv2:OutputPort ; lv2:index 0 ; lv2:symbol "out_l" ; lv2:name "Out L" ] ,

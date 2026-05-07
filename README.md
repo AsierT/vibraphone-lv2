@@ -65,3 +65,7 @@ Brand/developer:
 ```text
 TT Beats
 ```
+
+## License
+
+GPL-2.0-only.
