@@ -11,19 +11,24 @@ static const char* kUri = "https://github.com/AsierT/vibraphone-lv2#vibraphone";
 
 enum PortIndex : uint32_t {
 #ifdef VIBRAPHONE_INSERT_PORTS
-  IN_L = 0, IN_R, OUT_L, OUT_R, ROOT, SCALE, INTERVAL, HARMONY_LEVEL,
-  HARMONY_DIRECTION, SCALE_SNAP, TONE, MALLET_HARDNESS, STRIKE_NOISE,
-  BAR_DECAY, VELOCITY_SENS, AMP_ATTACK, AMP_DECAY, AMP_SUSTAIN, AMP_RELEASE,
-  TREMOLO_RATE, TREMOLO_DEPTH, WIDTH, GAIN, SPRING_MIX, SPRING_DECAY, SPRING_TONE,
-  SPRING_DRIVE, SPRING_SHAKE, DELAY_MIX, DELAY_TIME, DELAY_FEEDBACK,
-  TAPE_TONE, WOW_FLUTTER, TAPE_AGE, HEAD_MODE, MIDI_IN
+  IN_L = 0, IN_R, OUT_L, OUT_R, SCALE, INTERVAL, INTERVAL_DETUNE,
+  HARMONY_LEVEL, HARMONY_DIRECTION, SCALE_SNAP, TONE, MALLET_HARDNESS,
+  STRIKE_NOISE, BAR_DECAY, VELOCITY_SENS, AMP_ATTACK, AMP_HOLD, AMP_DECAY,
+  AMP_SUSTAIN, AMP_RELEASE, FILTER_TYPE, CUTOFF, RESONANCE, DRIVE,
+  FILT_ENV_AMT, FILT_ATTACK, FILT_HOLD, FILT_DECAY, FILT_SUSTAIN,
+  FILT_RELEASE, TREMOLO_RATE, TREMOLO_DEPTH, WIDTH, GAIN, SPRING_MIX,
+  SPRING_DECAY, SPRING_TONE, SPRING_DRIVE, SPRING_SHAKE, DELAY_MIX,
+  DELAY_TIME, DELAY_FEEDBACK, TAPE_TONE, WOW_FLUTTER, TAPE_AGE, HEAD_MODE,
+  MIDI_IN
 #else
-  OUT_L = 0, OUT_R, ROOT, SCALE, INTERVAL, HARMONY_LEVEL, HARMONY_DIRECTION,
-  SCALE_SNAP, TONE, MALLET_HARDNESS, STRIKE_NOISE, BAR_DECAY, VELOCITY_SENS,
-  AMP_ATTACK, AMP_DECAY, AMP_SUSTAIN, AMP_RELEASE, TREMOLO_RATE, TREMOLO_DEPTH,
-  WIDTH, GAIN, SPRING_MIX, SPRING_DECAY, SPRING_TONE, SPRING_DRIVE, SPRING_SHAKE,
-  DELAY_MIX, DELAY_TIME, DELAY_FEEDBACK, TAPE_TONE, WOW_FLUTTER, TAPE_AGE,
-  HEAD_MODE, MIDI_IN
+  OUT_L = 0, OUT_R, SCALE, INTERVAL, INTERVAL_DETUNE, HARMONY_LEVEL,
+  HARMONY_DIRECTION, SCALE_SNAP, TONE, MALLET_HARDNESS, STRIKE_NOISE,
+  BAR_DECAY, VELOCITY_SENS, AMP_ATTACK, AMP_HOLD, AMP_DECAY, AMP_SUSTAIN,
+  AMP_RELEASE, FILTER_TYPE, CUTOFF, RESONANCE, DRIVE, FILT_ENV_AMT,
+  FILT_ATTACK, FILT_HOLD, FILT_DECAY, FILT_SUSTAIN, FILT_RELEASE,
+  TREMOLO_RATE, TREMOLO_DEPTH, WIDTH, GAIN, SPRING_MIX, SPRING_DECAY,
+  SPRING_TONE, SPRING_DRIVE, SPRING_SHAKE, DELAY_MIX, DELAY_TIME,
+  DELAY_FEEDBACK, TAPE_TONE, WOW_FLUTTER, TAPE_AGE, HEAD_MODE, MIDI_IN
 #endif
 };
 
@@ -46,16 +51,23 @@ static const ScaleDef kScales[] = {
 struct Voice {
   uint8_t active;
   uint8_t stage;
+  uint8_t filt_stage;
   int midi_note;
+  int source_note;
   float freq;
   float amp;
   float env;
+  float filt_env;
   float bar_env;
   float age;
+  float hold_left;
+  float filt_hold_left;
   float phase1;
   float phase2;
   float phase3;
   float phase4;
+  float filt_lp;
+  float filt_bp;
 };
 
 enum {
@@ -66,7 +78,7 @@ enum {
 
 struct Plugin {
   float sr;
-  Voice voices[2];
+  Voice voices[16];
   float lfo_phase;
   float wow_phase;
   uint32_t noise;
@@ -89,9 +101,11 @@ struct Plugin {
 
   const float *in_l, *in_r;
   float *out_l, *out_r;
-  const float *root, *scale, *interval, *harmony_level, *harmony_direction, *scale_snap;
+  const float *scale, *interval, *interval_detune, *harmony_level, *harmony_direction, *scale_snap;
   const float *tone, *mallet_hardness, *strike_noise, *bar_decay, *velocity_sens;
-  const float *amp_attack, *amp_decay, *amp_sustain, *amp_release;
+  const float *amp_attack, *amp_hold, *amp_decay, *amp_sustain, *amp_release;
+  const float *filter_type, *cutoff, *resonance, *drive, *filt_env_amt;
+  const float *filt_attack, *filt_hold, *filt_decay, *filt_sustain, *filt_release;
   const float *tremolo_rate, *tremolo_depth, *width, *gain;
   const float *spring_mix, *spring_decay, *spring_tone, *spring_drive, *spring_shake;
   const float *delay_mix, *delay_time, *delay_feedback, *tape_tone, *wow_flutter, *tape_age, *head_mode;
@@ -101,11 +115,14 @@ struct Plugin {
 static constexpr float kPi = 3.14159265358979323846f;
 static constexpr float kTwoPi = 2.0f * kPi;
 static constexpr float kRefSampleRate = 48000.0f;
+static constexpr int kMaxVoices = 16;
+static constexpr int kIntervalPolyphonic = 8;
 static constexpr uint8_t kStageOff = 0;
 static constexpr uint8_t kStageAttack = 1;
-static constexpr uint8_t kStageDecay = 2;
-static constexpr uint8_t kStageSustain = 3;
-static constexpr uint8_t kStageRelease = 4;
+static constexpr uint8_t kStageHold = 2;
+static constexpr uint8_t kStageDecay = 3;
+static constexpr uint8_t kStageSustain = 4;
+static constexpr uint8_t kStageRelease = 5;
 
 static bool finite_float(float x) {
   return __builtin_isfinite(x);
@@ -184,15 +201,19 @@ static float midi_note_to_hz(int note) {
   return finite_or(440.0f * powf(2.0f, (static_cast<float>(note) - 69.0f) / 12.0f), 440.0f);
 }
 
+static float cents_ratio(float cents) {
+  return finite_or(powf(2.0f, cents / 1200.0f), 1.0f);
+}
+
 static int interval_steps(int interval) {
   static const int steps[] = {0, 1, 2, 3, 4, 5, 6, 7};
   interval = interval < 0 ? 0 : (interval > 7 ? 7 : interval);
   return steps[interval];
 }
 
-static int note_to_scale_degree(int midi_note, int root, int scale_index, int snap) {
+static int note_to_scale_degree(int midi_note, int anchor, int scale_index, int snap) {
   const ScaleDef* s = &kScales[scale_index];
-  const int semis = midi_note - root;
+  const int semis = midi_note - anchor;
   int octave = floor_div_int(semis, 12);
   const int chroma = positive_mod_int(semis, 12);
 
@@ -223,33 +244,41 @@ static int note_to_scale_degree(int midi_note, int root, int scale_index, int sn
   return octave * s->count + best;
 }
 
-static int scale_degree_to_note(int root, int scale_index, int degree) {
+static int scale_degree_to_note(int anchor, int scale_index, int degree) {
   const ScaleDef* s = &kScales[scale_index];
   const int octave = floor_div_int(degree, s->count);
   const int idx = positive_mod_int(degree, s->count);
-  return root + octave * 12 + s->steps[idx];
+  return anchor + octave * 12 + s->steps[idx];
 }
 
-static int harmony_note(int midi_note, int root, int scale_index, int interval, int direction, int snap) {
-  const int degree = note_to_scale_degree(midi_note, root, scale_index, snap);
+static int harmony_note(int midi_note, int scale_index, int interval, int direction, int snap) {
+  const int anchor = positive_mod_int(midi_note, 12);
+  const int degree = note_to_scale_degree(midi_note, anchor, scale_index, snap);
   const int amount = interval_steps(interval);
-  return scale_degree_to_note(root, scale_index, degree + (direction == 1 ? -amount : amount));
+  return scale_degree_to_note(anchor, scale_index, degree + (direction == 1 ? -amount : amount));
 }
 
 static void reset_voice(Voice* v) {
   if (!v) return;
   v->active = 0;
   v->stage = kStageOff;
+  v->filt_stage = kStageOff;
   v->midi_note = -1;
+  v->source_note = -1;
   v->freq = 440.0f;
   v->amp = 0.0f;
   v->env = 0.0f;
+  v->filt_env = 0.0f;
   v->bar_env = 0.0f;
   v->age = 0.0f;
+  v->hold_left = 0.0f;
+  v->filt_hold_left = 0.0f;
   v->phase1 = 0.0f;
   v->phase2 = 0.0f;
   v->phase3 = 0.0f;
   v->phase4 = 0.0f;
+  v->filt_lp = 0.0f;
+  v->filt_bp = 0.0f;
 }
 
 static void clear_delay(Plugin* p) {
@@ -264,8 +293,7 @@ static void clear_delay(Plugin* p) {
 
 static void reset_state(Plugin* p) {
   if (!p) return;
-  reset_voice(&p->voices[0]);
-  reset_voice(&p->voices[1]);
+  for (int i = 0; i < kMaxVoices; ++i) reset_voice(&p->voices[i]);
   p->lfo_phase = 0.0f;
   p->wow_phase = 0.0f;
   p->noise = 0x68756D31u;
@@ -307,9 +335,9 @@ static void init_plugin(Plugin* p, float sr) {
   p->in_r = nullptr;
   p->out_l = nullptr;
   p->out_r = nullptr;
-  p->root = nullptr;
   p->scale = nullptr;
   p->interval = nullptr;
+  p->interval_detune = nullptr;
   p->harmony_level = nullptr;
   p->harmony_direction = nullptr;
   p->scale_snap = nullptr;
@@ -319,9 +347,20 @@ static void init_plugin(Plugin* p, float sr) {
   p->bar_decay = nullptr;
   p->velocity_sens = nullptr;
   p->amp_attack = nullptr;
+  p->amp_hold = nullptr;
   p->amp_decay = nullptr;
   p->amp_sustain = nullptr;
   p->amp_release = nullptr;
+  p->filter_type = nullptr;
+  p->cutoff = nullptr;
+  p->resonance = nullptr;
+  p->drive = nullptr;
+  p->filt_env_amt = nullptr;
+  p->filt_attack = nullptr;
+  p->filt_hold = nullptr;
+  p->filt_decay = nullptr;
+  p->filt_sustain = nullptr;
+  p->filt_release = nullptr;
   p->tremolo_rate = nullptr;
   p->tremolo_depth = nullptr;
   p->width = nullptr;
@@ -342,37 +381,61 @@ static void init_plugin(Plugin* p, float sr) {
   reset_state(p);
 }
 
-static void trigger_voice(Voice* v, int note, float amp) {
+static Voice* find_voice(Plugin* p) {
+  if (!p) return nullptr;
+  Voice* oldest = &p->voices[0];
+  for (int i = 0; i < kMaxVoices; ++i) {
+    Voice* v = &p->voices[i];
+    if (!v->active) return v;
+    if (v->age > oldest->age) oldest = v;
+  }
+  return oldest;
+}
+
+static void trigger_voice(Plugin* p, int source_note, int note, float amp, float detune_cents) {
+  Voice* v = find_voice(p);
   if (!v) return;
   reset_voice(v);
   v->active = 1;
   v->midi_note = note;
-  v->freq = midi_note_to_hz(note);
+  v->source_note = source_note;
+  v->freq = clamp(midi_note_to_hz(note) * cents_ratio(detune_cents), 1.0f, sample_rate(p) * 0.45f);
   v->amp = clamp(amp, 0.0f, 1.0f);
   v->bar_env = v->amp;
   v->stage = kStageAttack;
+  v->filt_stage = kStageAttack;
 }
 
 static void trigger_pair(Plugin* p, int note, float velocity) {
-  const int root = control_int(p->root, 0, 0, 11);
   const int scale = control_int(p->scale, 0, 0, 7);
-  const int interval = control_int(p->interval, 4, 0, 7);
+  const int interval = control_int(p->interval, 4, 0, kIntervalPolyphonic);
   const int direction = control_int(p->harmony_direction, 0, 0, 1);
   const int snap = control_int(p->scale_snap, 0, 0, 2);
+  const float detune = control_value(p->interval_detune, 0.0f, -50.0f, 50.0f);
   const float velocity_sens = control_value(p->velocity_sens, 0.75f, 0.0f, 1.0f);
   const float harmony = control_value(p->harmony_level, 0.82f, 0.0f, 1.0f);
   const float amp = clamp((1.0f - velocity_sens) + velocity * velocity_sens, 0.0f, 1.0f);
-  const int second = harmony_note(note, root, scale, interval, direction, snap);
 
-  trigger_voice(&p->voices[0], note, amp);
-  trigger_voice(&p->voices[1], second, amp * harmony);
+  if (interval == kIntervalPolyphonic) {
+    trigger_voice(p, note, note, amp, 0.0f);
+    return;
+  }
+
+  const int second = harmony_note(note, scale, interval, direction, snap);
+  trigger_voice(p, note, note, amp, 0.0f);
+  trigger_voice(p, note, second, amp * harmony, detune);
 }
 
 static void release_pair(Plugin* p, int note) {
   if (!p) return;
-  if (p->voices[0].midi_note == note || p->voices[1].midi_note == note) {
-    if (p->voices[0].active) p->voices[0].stage = kStageRelease;
-    if (p->voices[1].active) p->voices[1].stage = kStageRelease;
+  for (int i = 0; i < kMaxVoices; ++i) {
+    Voice* v = &p->voices[i];
+    if (v->active && v->source_note == note) {
+      v->stage = kStageRelease;
+      v->filt_stage = kStageRelease;
+      v->hold_left = 0.0f;
+      v->filt_hold_left = 0.0f;
+    }
   }
 }
 
@@ -395,40 +458,101 @@ static void handle_midi(Plugin* p) {
   }
 }
 
+static void advance_adhsr(float* env, uint8_t* stage, float* hold_left, float peak,
+                          float attack_coef, float hold_samples, float decay_coef,
+                          float sustain, float release_coef) {
+  if (!env || !stage || !hold_left) return;
+  peak = clamp(peak, 0.0f, 1.0f);
+  sustain = clamp(sustain, 0.0f, 1.0f);
+
+  if (*stage == kStageAttack) {
+    const float attack_step = clamp(1.0f - attack_coef, 0.00001f, 1.0f);
+    *env += (peak - *env) * attack_step;
+    if (*env >= peak * 0.995f || peak <= 0.0001f) {
+      *env = peak;
+      *hold_left = hold_samples;
+      *stage = *hold_left > 0.5f ? kStageHold : kStageDecay;
+    }
+  } else if (*stage == kStageHold) {
+    *env = peak;
+    *hold_left -= 1.0f;
+    if (*hold_left <= 0.0f) {
+      *hold_left = 0.0f;
+      *stage = kStageDecay;
+    }
+  } else if (*stage == kStageDecay) {
+    const float target = peak * sustain;
+    const float decay_step = clamp(1.0f - decay_coef, 0.00001f, 1.0f);
+    *env += (target - *env) * decay_step;
+    if (fabsf(*env - target) <= 0.0005f) {
+      *env = target;
+      *stage = target > 0.0001f ? kStageSustain : kStageRelease;
+    }
+  } else if (*stage == kStageSustain) {
+    *env = peak * sustain;
+  } else if (*stage == kStageRelease) {
+    *env *= release_coef;
+  } else {
+    *env = 0.0f;
+  }
+
+  *env = clamp(finite_or(*env, 0.0f), 0.0f, 1.0f);
+}
+
+static float filter_voice(Plugin* p, Voice* v, float x, float cutoff_ctl, float env_amt,
+                          int filter_type, float res) {
+  const float sr = sample_rate(p);
+  x = finite_or(x, 0.0f);
+  if (!v) return x;
+  if (!finite_float(v->filt_lp)) v->filt_lp = 0.0f;
+  if (!finite_float(v->filt_bp)) v->filt_bp = 0.0f;
+
+  cutoff_ctl = clamp(finite_or(cutoff_ctl, 20000.0f), 0.0f, 20000.0f);
+  env_amt = clamp(env_amt, -1.0f, 1.0f);
+  res = clamp(res, 0.0f, 0.98f);
+
+  if (filter_type == 0 && cutoff_ctl >= 19999.0f && fabsf(env_amt) <= 0.0001f && res <= 0.0001f) {
+    return x;
+  }
+
+  float cutoff = cutoff_ctl + v->filt_env * env_amt * 20000.0f;
+  cutoff = clamp(cutoff, 0.0f, 20000.0f);
+  cutoff = clamp(cutoff, 0.0f, sr * 0.45f);
+
+  const float f = clamp(2.0f * sinf(kPi * cutoff / sr), 0.00001f, 0.95f);
+  const float damping = clamp(1.55f - res * 1.45f, 0.10f, 1.55f);
+
+  v->filt_lp += f * v->filt_bp;
+  float hp = x - v->filt_lp - damping * v->filt_bp;
+  v->filt_bp += f * hp;
+
+  v->filt_lp = finite_or(clamp(v->filt_lp, -4.0f, 4.0f), 0.0f);
+  v->filt_bp = finite_or(clamp(v->filt_bp, -4.0f, 4.0f), 0.0f);
+  hp = finite_or(clamp(hp, -4.0f, 4.0f), 0.0f);
+
+  float y = v->filt_lp;
+  if (filter_type == 1) y = hp;
+  if (filter_type == 2) y = v->filt_bp * (1.0f + res);
+  return finite_or(y, 0.0f);
+}
+
 static float render_voice(Plugin* p, Voice* v, float tone, float hardness, float strike_noise,
-                          float attack_coef, float decay_coef, float sustain, float release_coef,
-                          float bar_coef) {
+                          float attack_coef, float hold_samples, float decay_coef, float sustain,
+                          float release_coef, float filt_attack_coef, float filt_hold_samples,
+                          float filt_decay_coef, float filt_sustain, float filt_release_coef,
+                          float bar_coef, float cutoff, float filt_env_amt, int filter_type,
+                          float resonance, float drive) {
   if (!v || !v->active) return 0.0f;
 
   const float sr = sample_rate(p);
-  sustain = clamp(sustain, 0.0f, 1.0f);
-
-  if (v->stage == kStageAttack) {
-    const float attack_step = clamp(1.0f - attack_coef, 0.00001f, 1.0f);
-    v->env += (v->amp - v->env) * attack_step;
-    if (v->env >= v->amp * 0.995f || v->amp <= 0.0001f) {
-      v->env = v->amp;
-      v->stage = kStageDecay;
-    }
-  } else if (v->stage == kStageDecay) {
-    const float target = v->amp * sustain;
-    const float decay_step = clamp(1.0f - decay_coef, 0.00001f, 1.0f);
-    v->env += (target - v->env) * decay_step;
-    if (v->env <= target + 0.0005f) {
-      v->env = target;
-      v->stage = target > 0.0001f ? kStageSustain : kStageRelease;
-    }
-  } else if (v->stage == kStageSustain) {
-    v->env = v->amp * sustain;
-  } else if (v->stage == kStageRelease) {
-    v->env *= release_coef;
-  } else {
-    reset_voice(v);
-    return 0.0f;
-  }
+  advance_adhsr(&v->env, &v->stage, &v->hold_left, v->amp, attack_coef, hold_samples,
+                decay_coef, sustain, release_coef);
+  advance_adhsr(&v->filt_env, &v->filt_stage, &v->filt_hold_left, v->amp, filt_attack_coef,
+                filt_hold_samples, filt_decay_coef, filt_sustain, filt_release_coef);
 
   v->bar_env *= bar_coef;
   v->env = clamp(v->env, 0.0f, 1.0f);
+  v->filt_env = clamp(v->filt_env, 0.0f, 1.0f);
   v->bar_env = clamp(v->bar_env, 0.0f, 1.0f);
 
   if ((v->env * v->bar_env) < 0.00001f && (v->stage == kStageRelease || sustain <= 0.0001f)) {
@@ -461,6 +585,8 @@ static float render_voice(Plugin* p, Voice* v, float tone, float hardness, float
 
   v->age += 1.0f / sr;
   if (!finite_float(v->age) || v->age > 20.0f) v->age = 20.0f;
+  y = filter_voice(p, v, y, cutoff, filt_env_amt, filter_type, resonance);
+  if (drive > 0.0001f) y = soft_clip(y * (1.0f + drive * 8.0f));
   return finite_or(y * v->env * v->bar_env, 0.0f);
 }
 
@@ -607,9 +733,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
 #endif
     case OUT_L: p->out_l = static_cast<float*>(data); break;
     case OUT_R: p->out_r = static_cast<float*>(data); break;
-    case ROOT: p->root = static_cast<const float*>(data); break;
     case SCALE: p->scale = static_cast<const float*>(data); break;
     case INTERVAL: p->interval = static_cast<const float*>(data); break;
+    case INTERVAL_DETUNE: p->interval_detune = static_cast<const float*>(data); break;
     case HARMONY_LEVEL: p->harmony_level = static_cast<const float*>(data); break;
     case HARMONY_DIRECTION: p->harmony_direction = static_cast<const float*>(data); break;
     case SCALE_SNAP: p->scale_snap = static_cast<const float*>(data); break;
@@ -619,9 +745,20 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case BAR_DECAY: p->bar_decay = static_cast<const float*>(data); break;
     case VELOCITY_SENS: p->velocity_sens = static_cast<const float*>(data); break;
     case AMP_ATTACK: p->amp_attack = static_cast<const float*>(data); break;
+    case AMP_HOLD: p->amp_hold = static_cast<const float*>(data); break;
     case AMP_DECAY: p->amp_decay = static_cast<const float*>(data); break;
     case AMP_SUSTAIN: p->amp_sustain = static_cast<const float*>(data); break;
     case AMP_RELEASE: p->amp_release = static_cast<const float*>(data); break;
+    case FILTER_TYPE: p->filter_type = static_cast<const float*>(data); break;
+    case CUTOFF: p->cutoff = static_cast<const float*>(data); break;
+    case RESONANCE: p->resonance = static_cast<const float*>(data); break;
+    case DRIVE: p->drive = static_cast<const float*>(data); break;
+    case FILT_ENV_AMT: p->filt_env_amt = static_cast<const float*>(data); break;
+    case FILT_ATTACK: p->filt_attack = static_cast<const float*>(data); break;
+    case FILT_HOLD: p->filt_hold = static_cast<const float*>(data); break;
+    case FILT_DECAY: p->filt_decay = static_cast<const float*>(data); break;
+    case FILT_SUSTAIN: p->filt_sustain = static_cast<const float*>(data); break;
+    case FILT_RELEASE: p->filt_release = static_cast<const float*>(data); break;
     case TREMOLO_RATE: p->tremolo_rate = static_cast<const float*>(data); break;
     case TREMOLO_DEPTH: p->tremolo_depth = static_cast<const float*>(data); break;
     case WIDTH: p->width = static_cast<const float*>(data); break;
@@ -658,17 +795,33 @@ static void run(LV2_Handle instance, uint32_t n) {
   const float strike = control_value(p->strike_noise, 0.20f, 0.0f, 1.0f);
   const float bar_decay = control_value(p->bar_decay, 0.65f, 0.0f, 1.0f);
   const float amp_attack = control_value(p->amp_attack, 0.0f, 0.0f, 1.0f);
+  const float amp_hold = control_value(p->amp_hold, 0.0f, 0.0f, 1.0f);
   const float amp_decay = control_value(p->amp_decay, 0.55f, 0.0f, 1.0f);
   const float amp_sustain = control_value(p->amp_sustain, 0.0f, 0.0f, 1.0f);
   const float amp_release = control_value(p->amp_release, 0.35f, 0.0f, 1.0f);
+  const int filter_type = control_int(p->filter_type, 0, 0, 2);
+  const float cutoff = control_value(p->cutoff, 20000.0f, 0.0f, 20000.0f);
+  const float resonance = control_value(p->resonance, 0.0f, 0.0f, 0.98f);
+  const float drive = control_value(p->drive, 0.0f, 0.0f, 1.0f);
+  const float filt_env_amt = control_value(p->filt_env_amt, 0.0f, -1.0f, 1.0f);
+  const float filt_attack = control_value(p->filt_attack, 0.0f, 0.0f, 1.0f);
+  const float filt_hold = control_value(p->filt_hold, 0.0f, 0.0f, 1.0f);
+  const float filt_decay = control_value(p->filt_decay, 0.0f, 0.0f, 1.0f);
+  const float filt_sustain = control_value(p->filt_sustain, 0.0f, 0.0f, 1.0f);
+  const float filt_release = control_value(p->filt_release, 0.0f, 0.0f, 1.0f);
   const float trem_rate = control_value(p->tremolo_rate, 5.5f, 0.1f, 12.0f);
   const float trem_depth = control_value(p->tremolo_depth, 0.35f, 0.0f, 1.0f);
   const float width = control_value(p->width, 0.65f, 0.0f, 1.0f);
   const float gain = control_value(p->gain, 0.70f, 0.0f, 1.0f);
 
   const float attack_coef = time_coef_ms(p, 0.5f + amp_attack * amp_attack * 1200.0f);
+  const float hold_samples = amp_hold * amp_hold * 2.0f * sr;
   const float decay_coef = time_coef_ms(p, 80.0f + amp_decay * amp_decay * 7500.0f);
   const float release_coef = time_coef_ms(p, 20.0f + amp_release * amp_release * 2500.0f);
+  const float filt_attack_coef = time_coef_ms(p, 0.5f + filt_attack * filt_attack * 1200.0f);
+  const float filt_hold_samples = filt_hold * filt_hold * 2.0f * sr;
+  const float filt_decay_coef = time_coef_ms(p, 20.0f + filt_decay * filt_decay * 7500.0f);
+  const float filt_release_coef = time_coef_ms(p, 20.0f + filt_release * filt_release * 2500.0f);
   const float bar_coef = time_coef_ms(p, 220.0f + bar_decay * bar_decay * 9000.0f);
   const float gain_amp = gain * gain * 1.15f;
 
@@ -677,10 +830,20 @@ static void run(LV2_Handle instance, uint32_t n) {
     const float lfo = sinf(p->lfo_phase);
     const float trem = 1.0f - trem_depth * 0.5f + trem_depth * 0.5f * (lfo + 1.0f);
 
-    const float a = render_voice(p, &p->voices[0], tone, hardness, strike, attack_coef, decay_coef,
-                                 amp_sustain, release_coef, bar_coef);
-    const float b = render_voice(p, &p->voices[1], tone, hardness, strike, attack_coef, decay_coef,
-                                 amp_sustain, release_coef, bar_coef);
+    float a = 0.0f;
+    float b = 0.0f;
+    for (int voice = 0; voice < kMaxVoices; ++voice) {
+      const float y = render_voice(p, &p->voices[voice], tone, hardness, strike, attack_coef,
+                                   hold_samples, decay_coef, amp_sustain, release_coef,
+                                   filt_attack_coef, filt_hold_samples, filt_decay_coef,
+                                   filt_sustain, filt_release_coef, bar_coef, cutoff,
+                                   filt_env_amt, filter_type, resonance, drive);
+      if ((voice & 1) == 0) {
+        a += y;
+      } else {
+        b += y;
+      }
+    }
     const float pan = lfo * width * 0.28f;
     float dry_l = (a * (0.75f - pan) + b * (0.75f + pan)) * trem * gain_amp;
     float dry_r = (a * (0.75f + pan) + b * (0.75f - pan)) * trem * gain_amp;
