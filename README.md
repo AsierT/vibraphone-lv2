@@ -46,7 +46,7 @@ s2400-lv2/vibraphone.lv2
 Copy it to Unraid:
 
 ```bash
-scp -r s2400-lv2/vibraphone.lv2 root@10.10.20.61:'/mnt/user/Musica/Desarrollo LV2/'
+scp -r s2400-lv2/vibraphone.lv2 root@[IP]:'/mnt/user/Musica/Desarrollo LV2/'
 ```
 
 Check ABI and exported descriptor:
